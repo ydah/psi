@@ -10,6 +10,9 @@ YARD::Rake::YardocTask.new
 
 namespace :test do
   task unit: :spec
+  task :gc_stress do
+    ruby "-Ilib", "spec/gc_stress.rb"
+  end
 end
 
 task :compile

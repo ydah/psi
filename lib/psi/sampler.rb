@@ -11,6 +11,8 @@ module PSI
       @cgroup = cgroup
     end
 
+    # Takes a sample and returns a delta after the first call.
+    # @return [Delta, nil]
     def sample
       reading = PSI.read(@resource, cgroup: @cgroup)
       sampled_at = Process.clock_gettime(Process::CLOCK_MONOTONIC)

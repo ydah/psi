@@ -33,6 +33,8 @@ module PSI
       self
     end
 
+    # Stops monitoring, wakes the select call, and closes every trigger.
+    # @return [Monitor]
     def stop
       return self if stopped?
 

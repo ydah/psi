@@ -5,12 +5,13 @@ require "io/wait"
 module PSI
   # A kernel PSI trigger tied to an open pressure file descriptor.
   class Trigger
+    # Triggerable pressure categories.
     KINDS = %i[some full].freeze
-    MIN_WINDOW_US = 500_000
-    MAX_WINDOW_US = 10_000_000
 
     attr_reader :resource, :kind, :stall, :window, :cgroup
 
+    # Opens a trigger and closes it after the optional block.
+    # @return [Trigger, Object] the trigger, or the block result
     def self.open(...)
       trigger = new(...)
       return trigger unless block_given?
@@ -38,6 +39,8 @@ module PSI
       !!@io.wait(IO::PRIORITY, timeout)
     end
 
+    # Closes the descriptor and unregisters the kernel trigger.
+    # @return [nil]
     def close
       @io&.close unless closed?
       nil
@@ -57,9 +60,9 @@ module PSI
 
     def validate!
       raise ArgumentError, "kind must be :some or :full" unless KINDS.include?(kind)
-      raise ArgumentError, "stall must be greater than zero" unless stall.positive? && stall.finite?
-      raise ArgumentError, "window must be between 0.5 and 10.0 seconds" unless window.finite? && window_us.between?(MIN_WINDOW_US, MAX_WINDOW_US)
-      raise ArgumentError, "stall must not exceed window" if stall_us > window_us
+      raise ArgumentError, "stall must be greater than zero" unless stall.finite? && stall_us.positive?
+      raise ArgumentError, "window must be between 0.5 and 10.0 seconds" unless window.finite? && window.between?(0.5, 10.0)
+      raise ArgumentError, "stall must not exceed window" if stall > window
       raise ArgumentError, "cpu has no full pressure metric" if resource == :cpu && kind == :full && !cgroup
 
       PSI.path_for(resource, cgroup: cgroup)

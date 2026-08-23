@@ -9,7 +9,7 @@ class PressureShedder
     @mutex = Mutex.new
     @reject_until = 0
     @monitor = PSI::Monitor.new
-    @monitor.on(:memory, stall: 0.1, window: 1.0, cgroup: ENV["CGROUP"] || PSI.current_cgroup) do |event|
+    @monitor.on(:memory, stall: 0.2, window: 2.0, cgroup: ENV["CGROUP"] || PSI.current_cgroup) do |event|
       warn event
       @mutex.synchronize { @reject_until = monotonic + 10 }
     end

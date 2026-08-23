@@ -25,7 +25,11 @@ RSpec.describe PSI::Trigger do
 
   it "validates arguments before opening a file" do
     expect { described_class.new(:memory, stall: 0.1, window: 0.49) }.to raise_error(ArgumentError, /window/)
+    expect { described_class.new(:memory, stall: 0.1, window: 0.4999996) }.to raise_error(ArgumentError, /window/)
+    expect { described_class.new(:memory, stall: 0.1, window: 10.0000004) }.to raise_error(ArgumentError, /window/)
+    expect { described_class.new(:memory, stall: 0.0000004, window: 1.0) }.to raise_error(ArgumentError, /stall/)
     expect { described_class.new(:memory, stall: 1.1, window: 1.0) }.to raise_error(ArgumentError, /exceed/)
+    expect { described_class.new(:memory, stall: 1.0000004, window: 1.0000003) }.to raise_error(ArgumentError, /exceed/)
     expect { described_class.new(:memory, kind: :other, stall: 0.1, window: 1.0) }.to raise_error(ArgumentError, /kind/)
     expect { described_class.new(:cpu, kind: :full, stall: 0.1, window: 1.0) }.to raise_error(ArgumentError, /cpu/)
     expect(File).not_to have_received(:open)

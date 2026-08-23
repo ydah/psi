@@ -14,6 +14,8 @@ module PSI
       @at = at
     end
 
+    # Formats the pressure and threshold for logs.
+    # @return [String]
     def to_s
       average = reading.public_send(kind)&.avg10
       value = average ? " avg10=#{average}%" : ""

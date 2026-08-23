@@ -62,6 +62,8 @@ PSI.read(:memory, cgroup: cgroup)
 
 Trigger files must be writable. `/proc/pressure/*` normally requires root;
 delegated cgroup v2 pressure files can be used without root.
+On current kernels, an unprivileged trigger's window must be a multiple of two
+seconds; privileged triggers retain the full 0.5–10 second range.
 
 ```ruby
 PSI::Trigger.open(:memory, kind: :some, stall: 0.15, window: 1.0) do |trigger|
