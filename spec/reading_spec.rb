@@ -13,6 +13,7 @@ RSpec.describe PSI::Reading do
     expect(reading.some.avg(600)).to eq(4.5)
     expect(reading.some.total).to eq(18_446_744_073_709_551_615)
     expect(reading.full.to_h).to eq(avg10: 0.0, avg60: 0.1, avg300: 0.2, total: 42)
+    expect(reading.metrics[:unknown].avg10).to eq(99.0)
   end
 
   it "handles a missing full line and final newline" do

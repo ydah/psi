@@ -1,0 +1,27 @@
+name: Kernel matrix
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  system:
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        kernel: ['5.10', '6.1', '6.12']
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '3.4'
+          bundler-cache: true
+      - name: Install virtme-ng
+        run: sudo apt-get update && sudo apt-get install -y virtme-ng qemu-system-x86
+      - name: Run system tests on Linux ${{ matrix.kernel }}
+        run: vng -v -r v${{ matrix.kernel }} -- bundle exec rake test:system

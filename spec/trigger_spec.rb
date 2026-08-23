@@ -19,7 +19,7 @@ RSpec.describe PSI::Trigger do
 
     expect(File).to have_received(:open).with("/proc/pressure/memory", File::RDWR)
     expect(io.sync).to be(true)
-    expect(io.written).to eq("some 150000 1000000")
+    expect(io.written).to eq("some 150000 1000000\n")
     expect(trigger).not_to be_closed
   end
 
@@ -35,7 +35,7 @@ RSpec.describe PSI::Trigger do
     expect do
       described_class.new(:cpu, kind: :full, stall: 0.1, window: 1.0, cgroup: "/cg")
     end.to output(/may be unavailable/).to_stderr
-    expect(io.written).to eq("full 100000 1000000")
+    expect(io.written).to eq("full 100000 1000000\n")
   end
 
   it "converts registration failures and closes the descriptor" do

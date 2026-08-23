@@ -69,11 +69,11 @@ module PSI
     def register
       @io = File.open(PSI.path_for(resource, cgroup: cgroup), File::RDWR)
       @io.sync = true
-      @io.write("#{kind} #{stall_us} #{window_us}")
+      @io.write("#{kind} #{stall_us} #{window_us}\n")
     rescue Errno::ENOENT => e
       discard_io
       raise UnsupportedError, e.message
-    rescue Errno::EINVAL, Errno::EBUSY, Errno::ENOMEM, Errno::EOPNOTSUPP, Errno::EACCES => e
+    rescue Errno::EINVAL, Errno::EBUSY, Errno::ENOMEM, Errno::EOPNOTSUPP, Errno::EACCES, Errno::EPERM => e
       discard_io
       raise TriggerError, "cannot register #{resource} #{kind} trigger (#{e.class.name}): #{e.message}"
     rescue StandardError

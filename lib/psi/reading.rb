@@ -25,30 +25,33 @@ module PSI
 
   # A snapshot read from one PSI resource.
   class Reading
-    attr_reader :resource, :some, :full, :read_at
+    attr_reader :resource, :some, :full, :read_at, :metrics
 
     def self.parse(resource, text, read_at: Time.now)
       metrics = text.each_line.filter_map do |line|
         kind, *fields = line.split
-        next unless %w[some full].include?(kind)
+        next unless kind
 
         values = fields.filter_map { |field| field.split("=", 2) if field.include?("=") }.to_h
+        next unless %w[some full].include?(kind) || values.key?("total")
+
         averages = values.filter_map do |key, value|
           [Integer(key.delete_prefix("avg")), Float(value)] if key.match?(/\Aavg\d+\z/)
         end.to_h
         [kind.to_sym, Metrics.new(averages: averages, total: Integer(values.fetch("total")))]
       end.to_h
 
-      new(resource: resource, some: metrics[:some], full: metrics[:full], read_at: read_at)
+      new(resource: resource, some: metrics[:some], full: metrics[:full], read_at: read_at, metrics: metrics)
     rescue ArgumentError, KeyError => e
       raise Error, "invalid PSI data: #{e.message}"
     end
 
-    def initialize(resource:, some:, full:, read_at:)
+    def initialize(resource:, some:, full:, read_at:, metrics: nil)
       @resource = resource
       @some = some
       @full = full
       @read_at = read_at
+      @metrics = (metrics || { some: some, full: full }.compact).freeze
     end
   end
 end

@@ -11,13 +11,15 @@ permissions:
   contents: read
 
 jobs:
-  build:
-    runs-on: ubuntu-latest
+  unit:
+    runs-on: ubuntu-24.04
     name: Ruby ${{ matrix.ruby }}
     strategy:
       matrix:
         ruby:
-          - '4.0'
+          - '3.2'
+          - '3.3'
+          - '3.4'
 
     steps:
       - uses: actions/checkout@v6
@@ -28,5 +30,22 @@ jobs:
         with:
           ruby-version: ${{ matrix.ruby }}
           bundler-cache: true
-      - name: Run the default task
-        run: bundle exec rake
+      - name: Run unit tests
+        run: bundle exec rake test:unit
+      - name: Validate RBS
+        run: bundle exec rbs validate
+      - name: Build documentation
+        run: bundle exec yard
+
+  system:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '3.4'
+          bundler-cache: true
+      - name: Run Linux system tests
+        run: sudo env "PATH=$PATH" bundle exec rake test:system

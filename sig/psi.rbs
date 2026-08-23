@@ -1,0 +1,91 @@
+module PSI
+  VERSION: String
+  RESOURCES: Array[Symbol]
+
+  class Error < StandardError
+  end
+
+  class UnsupportedError < Error
+  end
+
+  class TriggerError < Error
+  end
+
+  def self.procfs_root: () -> String
+  def self.procfs_root=: (String?) -> String?
+  def self.supported?: () -> bool
+  def self.resources: () -> Array[Symbol]
+  def self.read: (Symbol | String resource, ?cgroup: String?) -> Reading
+  def self.read_all: (?cgroup: String?) -> Hash[Symbol, Reading]
+  def self.current_cgroup: () -> String
+  def self.path_for: (Symbol | String resource, ?cgroup: String?) -> String
+
+  class Metrics
+    attr_reader total: Integer
+
+    def initialize: (averages: Hash[Integer, Float], total: Integer) -> void
+    def avg: (Integer seconds) -> Float?
+    def avg10: () -> Float?
+    def avg60: () -> Float?
+    def avg300: () -> Float?
+    def to_h: () -> Hash[Symbol, Float | Integer]
+  end
+
+  class Reading
+    attr_reader resource: Symbol
+    attr_reader some: Metrics?
+    attr_reader full: Metrics?
+    attr_reader read_at: Time
+    attr_reader metrics: Hash[Symbol, Metrics]
+
+    def self.parse: (Symbol resource, String text, ?read_at: Time) -> Reading
+    def initialize: (resource: Symbol, some: Metrics?, full: Metrics?, read_at: Time, ?metrics: Hash[Symbol, Metrics]?) -> void
+  end
+
+  class Delta
+    attr_reader some_ratio: Float?
+    attr_reader full_ratio: Float?
+    attr_reader elapsed: Float
+  end
+
+  class Sampler
+    def initialize: (Symbol | String resource, ?cgroup: String?) -> void
+    def sample: () -> Delta?
+  end
+
+  class Trigger
+    attr_reader resource: Symbol
+    attr_reader kind: Symbol
+    attr_reader stall: Float
+    attr_reader window: Float
+    attr_reader cgroup: String?
+
+    def self.open: [A] (Symbol | String resource, ?kind: Symbol | String, stall: Numeric, window: Numeric, ?cgroup: String?) { (Trigger) -> A } -> A
+                  | (Symbol | String resource, ?kind: Symbol | String, stall: Numeric, window: Numeric, ?cgroup: String?) -> Trigger
+    def initialize: (Symbol | String resource, ?kind: Symbol | String, stall: Numeric, window: Numeric, ?cgroup: String?) -> void
+    def wait: (?timeout: Numeric?) -> bool
+    def close: () -> nil
+    def closed?: () -> bool
+    def to_io: () -> IO
+  end
+
+  class Event
+    attr_reader resource: Symbol
+    attr_reader kind: Symbol
+    attr_reader stall: Float
+    attr_reader window: Float
+    attr_reader reading: Reading
+    attr_reader at: Time
+
+    def initialize: (trigger: Trigger, reading: Reading, ?at: Time) -> void
+    def to_s: () -> String
+  end
+
+  class Monitor
+    def initialize: () -> void
+    def on: (Symbol | String resource, **untyped options) { (Event) -> void } -> self
+    def on_error: () { (Exception) -> void } -> self
+    def start: () -> self
+    def stop: () -> self
+  end
+end

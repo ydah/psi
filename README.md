@@ -1,39 +1,130 @@
-# Psi
+# PSI
 
-TODO: Delete this and the text below, and describe your gem
+PSI is a pure Ruby interface to Linux Pressure Stall Information. It reads
+system-wide and cgroup v2 pressure metrics, calculates exact interval ratios,
+and monitors kernel PSI triggers without a C extension.
 
-Welcome to your new gem! In this directory, you'll find the files you need to be able to package up your Ruby library into a gem. Put your Ruby code in the file `lib/psi`. To experiment with that code, run `bin/console` for an interactive prompt.
+## Requirements
+
+- Ruby 3.2 or later
+- Linux 4.20 or later with `CONFIG_PSI=y` for readings
+- Linux 5.2 or later and write permission on a pressure file for triggers
+
+Some distributions built with `CONFIG_PSI_DEFAULT_DISABLED=y` also require the
+`psi=1` kernel command-line option.
 
 ## Installation
 
-TODO: Replace `UPDATE_WITH_YOUR_GEM_NAME_IMMEDIATELY_AFTER_RELEASE_TO_RUBYGEMS_ORG` with your gem name right after releasing it to RubyGems.org. Please do not do it earlier due to security reasons. Alternatively, replace this section with instructions to install your gem from git if you don't plan to release to RubyGems.org.
-
-Install the gem and add to the application's Gemfile by executing:
-
-```bash
-bundle add UPDATE_WITH_YOUR_GEM_NAME_IMMEDIATELY_AFTER_RELEASE_TO_RUBYGEMS_ORG
+```sh
+bundle add psi
 ```
 
-If bundler is not being used to manage dependencies, install the gem by executing:
+## Read pressure
 
-```bash
-gem install UPDATE_WITH_YOUR_GEM_NAME_IMMEDIATELY_AFTER_RELEASE_TO_RUBYGEMS_ORG
+```ruby
+require "psi"
+
+reading = PSI.read(:memory)
+reading.some.avg10  # percentage over the last 10 seconds
+reading.full.total  # cumulative stalled microseconds
+
+PSI.resources # => [:cpu, :memory, :io] plus :irq where available
+PSI.read_all   # => { cpu: PSI::Reading, ... }
 ```
 
-## Usage
+`some` means at least one task was stalled. `full` means every non-idle task
+was stalled. System-wide CPU pressure normally has only `some`; IRQ pressure,
+available since Linux 6.1, has only `full`.
 
-TODO: Write usage instructions here
+For an exact interval ratio, use cumulative totals instead of rolling averages:
+
+```ruby
+sampler = PSI::Sampler.new(:memory)
+sampler.sample # => nil
+sleep 5
+sampler.sample # => #<data PSI::Delta some_ratio=..., full_ratio=..., elapsed=...>
+```
+
+`PSI::Sampler` is intentionally not thread-safe; give each sampling thread its
+own instance.
+
+## Read the current cgroup
+
+Containers should prefer cgroup values because `/proc/pressure` can expose the
+host's system-wide pressure:
+
+```ruby
+cgroup = PSI.current_cgroup
+PSI.read(:memory, cgroup: cgroup)
+```
+
+## Wait for a trigger
+
+Trigger files must be writable. `/proc/pressure/*` normally requires root;
+delegated cgroup v2 pressure files can be used without root.
+
+```ruby
+PSI::Trigger.open(:memory, kind: :some, stall: 0.15, window: 1.0) do |trigger|
+  warn "memory pressure" if trigger.wait(timeout: 10)
+end
+```
+
+`window` must be 0.5–10 seconds and `stall` cannot exceed it. Start with a
+`some` trigger around 10–20% of the window for early warning and a higher
+`full` trigger for load shedding, then tune from measurements on the real
+workload. There is no portable 10–30 second warning threshold: reclaim,
+working-set size, and cgroup limits determine the lead time.
+
+## Monitor several triggers
+
+```ruby
+monitor = PSI::Monitor.new
+monitor.on_error { |error| warn error.full_message }
+monitor.on(:memory, stall: 0.1, window: 1.0) { |event| warn event }
+monitor.on(:io, stall: 0.3, window: 2.0) { |event| warn event }
+monitor.start
+
+# Later, during shutdown:
+monitor.stop
+```
+
+Monitor uses one thread and `IO.select`'s priority set. Callback exceptions are
+sent to `on_error` and do not stop monitoring. `stop` wakes the thread and
+closes every trigger.
+
+See `examples/load_shedding.rb` for Rack/Puma-style 503 shedding,
+`examples/prometheus_exporter.rb` for a dependency-free metrics endpoint, and
+`benchmark/monitor_idle.rb` for idle CPU measurement.
+
+## Unsupported and constrained environments
+
+Requiring the gem always succeeds; `PSI.supported?` reports whether the
+system-wide PSI directory exists, and use on an unsupported kernel raises
+`PSI::UnsupportedError`.
+
+| Environment | Limitation |
+|---|---|
+| macOS and Windows | No Linux procfs PSI interface. |
+| WSL2 with an old or PSI-disabled kernel | `/proc/pressure` is absent. |
+| Docker Desktop and other containers | `/proc/pressure` may represent the host; trigger writes are commonly denied. Prefer a delegated cgroup. |
+| GitHub-hosted runners | Readings usually work, but trigger tests require root and the host kernel cannot be changed. |
+| Linux before 4.20 | PSI is unavailable. Linux before 5.2 supports readings but not triggers. |
 
 ## Development
 
-After checking out the repo, run `bin/setup` to install dependencies. Then, run `rake spec` to run the tests. You can also run `bin/console` for an interactive prompt that will allow you to experiment.
+```sh
+bundle install
+bundle exec rake test:unit
+bundle exec rbs validate
+bundle exec yard
+```
 
-To install this gem onto your local machine, run `bundle exec rake install`. To release a new version, update the version number in `version.rb`, and then run `bundle exec rake release`, which will create a git tag for the version, push git commits and the created tag, and push the `.gem` file to [rubygems.org](https://rubygems.org).
+Linux system tests require PSI trigger write permission:
 
-## Contributing
-
-Bug reports and pull requests are welcome on GitHub at https://github.com/[USERNAME]/psi.
+```sh
+sudo --preserve-env=PATH,GEM_HOME,GEM_PATH bundle exec rake test:system
+```
 
 ## License
 
-The gem is available as open source under the terms of the [MIT License](https://opensource.org/licenses/MIT).
+MIT. See [LICENSE.txt](LICENSE.txt).
