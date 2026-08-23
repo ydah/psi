@@ -4,6 +4,8 @@ require_relative "psi/version"
 require_relative "psi/reading"
 require_relative "psi/sampler"
 require_relative "psi/trigger"
+require_relative "psi/event"
+require_relative "psi/monitor"
 
 # Reads Linux Pressure Stall Information (PSI).
 module PSI
