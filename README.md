@@ -1,17 +1,36 @@
-# PSI
+<h1 align="center">PSI</h1>
 
-PSI is a pure Ruby interface to Linux Pressure Stall Information. It reads
-system-wide and cgroup v2 pressure metrics, calculates exact interval ratios,
-and monitors kernel PSI triggers without a C extension.
+<p align="center">
+  <strong>A pure Ruby interface to Linux Pressure Stall Information</strong>
+</p>
 
-## Requirements
+<p align="center">
+  <a href="https://rubygems.org/gems/psi"><img src="https://img.shields.io/gem/v/psi.svg?colorB=319e8c" alt="Gem Version"></a>
+  <a href="https://rubygems.org/gems/psi"><img src="https://img.shields.io/gem/dt/psi.svg" alt="Downloads"></a>
+  <img src="https://img.shields.io/badge/ruby-%3E%3D%203.2-ruby.svg" alt="Ruby Version">
+  <img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="License">
+</p>
 
-- Ruby 3.2 or later
-- Linux 4.20 or later with `CONFIG_PSI=y` for readings
-- Linux 5.2 or later and write permission on a pressure file for triggers
+<p align="center">
+  <a href="#features">Features</a> ·
+  <a href="#installation">Installation</a> ·
+  <a href="#usage">Usage</a> ·
+  <a href="#triggers">Triggers</a> ·
+  <a href="#supported-environments">Supported Environments</a>
+</p>
 
-Some distributions built with `CONFIG_PSI_DEFAULT_DISABLED=y` also require the
-`psi=1` kernel command-line option.
+---
+
+PSI reads system-wide and cgroup v2 pressure metrics, calculates exact interval
+ratios, and monitors kernel PSI triggers without a C extension.
+
+## Features
+
+- System-wide and cgroup v2 pressure readings for every available resource
+- Exact interval ratios calculated from cumulative counters
+- Kernel PSI triggers with timeout support
+- Multi-trigger monitoring on a single thread
+- Pure Ruby with no runtime dependencies
 
 ## Installation
 
@@ -19,7 +38,18 @@ Some distributions built with `CONFIG_PSI_DEFAULT_DISABLED=y` also require the
 bundle add psi
 ```
 
-## Read pressure
+### Requirements
+
+- Ruby 3.2+
+- Linux 4.20+ with `CONFIG_PSI=y` for readings
+- Linux 5.2+ and write permission on a pressure file for triggers
+
+Distributions built with `CONFIG_PSI_DEFAULT_DISABLED=y` also require the
+`psi=1` kernel command-line option.
+
+## Usage
+
+### Read pressure
 
 ```ruby
 require "psi"
@@ -36,7 +66,10 @@ PSI.read_all   # => { cpu: PSI::Reading, ... }
 was stalled. System-wide CPU pressure normally has only `some`; IRQ pressure,
 available since Linux 6.1, has only `full`.
 
-For an exact interval ratio, use cumulative totals instead of rolling averages:
+### Sample an interval
+
+Use cumulative totals when you need an exact interval ratio instead of a
+rolling average:
 
 ```ruby
 sampler = PSI::Sampler.new(:memory)
@@ -48,7 +81,7 @@ sampler.sample # => #<data PSI::Delta some_ratio=..., full_ratio=..., elapsed=..
 `PSI::Sampler` is intentionally not thread-safe; give each sampling thread its
 own instance.
 
-## Read the current cgroup
+### Read the current cgroup
 
 Containers should prefer cgroup values because `/proc/pressure` can expose the
 host's system-wide pressure:
@@ -58,12 +91,14 @@ cgroup = PSI.current_cgroup
 PSI.read(:memory, cgroup: cgroup)
 ```
 
-## Wait for a trigger
+## Triggers
+
+### Wait for a trigger
 
 Trigger files must be writable. `/proc/pressure/*` normally requires root;
-delegated cgroup v2 pressure files can be used without root.
-On current kernels, an unprivileged trigger's window must be a multiple of two
-seconds; privileged triggers retain the full 0.5–10 second range.
+delegated cgroup v2 pressure files can be used without root. On current
+kernels, an unprivileged trigger's window must be a multiple of two seconds;
+privileged triggers retain the full 0.5–10 second range.
 
 ```ruby
 PSI::Trigger.open(:memory, kind: :some, stall: 0.15, window: 1.0) do |trigger|
@@ -77,7 +112,7 @@ end
 workload. There is no portable 10–30 second warning threshold: reclaim,
 working-set size, and cgroup limits determine the lead time.
 
-## Monitor several triggers
+### Monitor several triggers
 
 ```ruby
 monitor = PSI::Monitor.new
@@ -94,13 +129,15 @@ Monitor uses one thread and `IO.select`'s priority set. Callback exceptions are
 sent to `on_error` and do not stop monitoring. `stop` wakes the thread and
 closes every trigger.
 
-See `examples/load_shedding.rb` for Rack/Puma-style 503 shedding,
-`examples/prometheus_exporter.rb` for a dependency-free metrics endpoint, and
-`benchmark/monitor_idle.rb` for idle CPU measurement.
+See [`examples/load_shedding.rb`](examples/load_shedding.rb) for Rack/Puma-style
+503 shedding, [`examples/prometheus_exporter.rb`](examples/prometheus_exporter.rb)
+for a dependency-free metrics endpoint, and
+[`benchmark/monitor_idle.rb`](benchmark/monitor_idle.rb) for idle CPU
+measurement.
 
-## Unsupported and constrained environments
+## Supported Environments
 
-Requiring the gem always succeeds; `PSI.supported?` reports whether the
+Requiring the gem always succeeds. `PSI.supported?` reports whether the
 system-wide PSI directory exists, and use on an unsupported kernel raises
 `PSI::UnsupportedError`.
 
@@ -127,6 +164,10 @@ Linux system tests require PSI trigger write permission:
 sudo --preserve-env=PATH,GEM_HOME,GEM_PATH bundle exec rake test:system
 ```
 
+## Contributing
+
+Bug reports and pull requests are welcome at https://github.com/ydah/psi.
+
 ## License
 
-MIT. See [LICENSE.txt](LICENSE.txt).
+Released under the [MIT License](LICENSE.txt).
